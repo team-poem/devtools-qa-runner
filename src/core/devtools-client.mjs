@@ -4,6 +4,13 @@ import { parseJsonOutput } from './utils.mjs';
 
 const execFileAsync = promisify(execFile);
 
+// chrome-devtools returns each result as a single JSON.stringify(structuredContent)
+// line on stdout. A take_snapshot of a large a11y tree, or list_network_requests /
+// list_console_messages with preserved history on a real app, easily exceeds Node's
+// default 1 MiB stdout ceiling and would otherwise crash the run with
+// ERR_CHILD_PROCESS_STDIO_MAXBUFFER. Give it generous headroom.
+const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
+
 export class DevToolsClient {
   constructor({ timeoutMs, cwd = process.cwd(), report }) {
     this.timeoutMs = timeoutMs;
@@ -17,6 +24,7 @@ export class DevToolsClient {
       const { stdout, stderr } = await execFileAsync('npx', ['chrome-devtools', ...cliArgs, '--output-format=json'], {
         cwd: this.cwd,
         timeout: Math.max(this.timeoutMs, 60000),
+        maxBuffer: MAX_OUTPUT_BYTES,
         env: {
           ...process.env,
           CI: '1',

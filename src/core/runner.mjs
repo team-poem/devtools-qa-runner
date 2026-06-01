@@ -35,24 +35,46 @@ export async function runQa({ url, profile, profilePath, outDir, timeoutMs }) {
         return runScenarioSpec({ spec, item, profile, client, artifacts, timeoutMs });
       });
     }
-    report.consoleMessages = await client.run('list_console_messages', ['list_console_messages', '--includePreservedMessages']);
-    report.networkRequests = await client.run('list_network_requests', ['list_network_requests', '--includePreservedRequests']);
-    report.lighthouse = await client.run('lighthouse_audit', [
-      'lighthouse_audit',
-      '--mode',
-      'snapshot',
-      '--device',
-      'desktop',
-      '--outputDirPath',
-      path.join(outDir, 'lighthouse'),
-    ]);
+    // Post-scenario collection. Each call is isolated so one failure (e.g. a
+    // Lighthouse timeout, or an oversized response) records its error and lets
+    // the rest — and the persisted report — still complete.
+    report.consoleMessages = await collect(report, 'list_console_messages', () =>
+      client.run('list_console_messages', ['list_console_messages', '--includePreservedMessages']));
+    report.networkRequests = await collect(report, 'list_network_requests', () =>
+      client.run('list_network_requests', ['list_network_requests', '--includePreservedRequests']));
+    report.lighthouse = await collect(report, 'lighthouse_audit', () =>
+      client.run('lighthouse_audit', [
+        'lighthouse_audit',
+        '--mode',
+        'snapshot',
+        '--device',
+        'desktop',
+        '--outputDirPath',
+        path.join(outDir, 'lighthouse'),
+      ]));
     report.quality = analyzeQuality(report, profile.quality || {});
   } finally {
     await client.stop();
+    // Always persist the report best-effort, even if a step above threw.
+    await writeReport({ outDir, report, profilePath, timeoutMs }).catch((err) => {
+      report.reportWriteError = err?.message || String(err);
+    });
   }
 
-  await writeReport({ outDir, report, profilePath, timeoutMs });
   return report;
+}
+
+// Run a post-scenario collection step, capturing any failure onto the report
+// instead of aborting the whole run. Returns null on failure so downstream
+// analysis treats the data as absent rather than crashing.
+async function collect(report, name, fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    report.collectionErrors = report.collectionErrors || {};
+    report.collectionErrors[name] = err?.message || String(err);
+    return null;
+  }
 }
 
 async function scenario(report, name, fn) {

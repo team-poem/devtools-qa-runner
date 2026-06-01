@@ -1,5 +1,6 @@
 import { assert } from '../core/utils.mjs';
 import { findBySpec, hasText } from '../core/snapshot.mjs';
+import { classifyNetworkStatus, isFaviconUrl } from '../core/network.mjs';
 
 export const genericScenarioTypes = [
   'click',
@@ -78,11 +79,15 @@ function isIgnored(text, patterns) {
 }
 
 function isHttpError(request, spec) {
-  const status = Number(request.status);
-  if (!status || status < 400) return false;
+  const cls = classifyNetworkStatus(request.status);
+  // Successful responses and still-pending requests are not errors.
+  if (cls.kind === 'ok' || cls.kind === 'pending') return false;
   const url = String(request.url || '');
-  if (spec.ignoreFavicon404 && status === 404 && url.endsWith('/favicon.ico')) return false;
   if ((spec.ignoreUrlIncludes || []).some((part) => url.includes(part))) return false;
-  if (spec.failOn4xx === false && status < 500) return false;
+  // Transport failures (net::ERR_*) are always errors; code-based knobs don't apply.
+  if (cls.kind === 'transport-error') return true;
+  // client-error (4xx) / server-error (5xx).
+  if (spec.ignoreFavicon404 && cls.code === 404 && isFaviconUrl(url)) return false;
+  if (spec.failOn4xx === false && cls.kind === 'client-error') return false;
   return true;
 }

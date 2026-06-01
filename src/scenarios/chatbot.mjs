@@ -43,12 +43,27 @@ async function runQuestionScenario({ spec, item, profile, client, artifacts, tim
 
 async function runEmptyInputScenario({ spec, item, profile, client, artifacts }) {
   const before = await artifacts.snapshot(`${item.name}-before`, item);
+  const answerDoneText = profile.selectors?.answerDoneText || '';
   const beforeTextCount = flatten(before).length;
+  const beforeAnswers = countTextOccurrences(before, answerDoneText);
   await askFromSnapshot({ snap: before, text: spec.text || '   ', profile, client });
   await sleep(spec.waitMs || 500);
   const after = await artifacts.snapshot(`${item.name}-after`, item);
-  // Empty input should not produce a new answer. A few extra nodes (e.g. an
-  // aria-live validation hint) are tolerated; tune via spec.maxNodeDelta.
+
+  // Primary oracle: if an answerDoneText marker exists, a real answer would add
+  // a new occurrence of it. This catches the case where the app echoes the blank
+  // input by reusing/transforming nodes (so the node-count delta stays small).
+  if (answerDoneText) {
+    const afterAnswers = countTextOccurrences(after, answerDoneText);
+    assert(
+      afterAnswers <= beforeAnswers,
+      `empty input should not produce a new answer (answer markers ${beforeAnswers} -> ${afterAnswers})`,
+    );
+  }
+
+  // Secondary oracle: the accessibility tree should not grow materially. A few
+  // extra nodes (e.g. an aria-live validation hint) are tolerated; tune via
+  // spec.maxNodeDelta.
   const maxNodeDelta = Number.isInteger(spec.maxNodeDelta) ? spec.maxNodeDelta : 2;
   assert(
     flatten(after).length <= beforeTextCount + maxNodeDelta,

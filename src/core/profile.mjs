@@ -33,6 +33,11 @@ export function validateProfile(profile, source = '<profile>') {
     throw new Error(`${source}: selectors.chatInput is required for chatbot scenarios`);
   }
 
+  const hasConsent = profile.scenarios.some((scenario) => scenario.type === 'consent');
+  if (hasConsent && !profile.selectors?.consentAgreeButton) {
+    throw new Error(`${source}: selectors.consentAgreeButton is required for consent scenarios`);
+  }
+
   for (const [index, scenario] of profile.scenarios.entries()) {
     if (!scenario.type) throw new Error(`${source}: scenarios[${index}].type is required`);
     if (!supportedScenarioTypes.includes(scenario.type)) {
@@ -41,6 +46,10 @@ export function validateProfile(profile, source = '<profile>') {
     validateScenarioFields(scenario, index, source);
   }
 }
+
+// Matches the dep's emulate viewport grammar:
+//   '<width>x<height>x<devicePixelRatio>[,mobile][,touch][,landscape]'
+const VIEWPORT_RE = /^\d+x\d+x\d+(?:,(?:mobile|touch|landscape))*$/;
 
 function validateScenarioFields(scenario, index, source) {
   const prefix = `${source}: scenarios[${index}]`;
@@ -52,5 +61,11 @@ function validateScenarioFields(scenario, index, source) {
   }
   if (scenario.type === 'wait-for-text' && !scenario.text) {
     throw new Error(`${prefix}.wait-for-text requires text`);
+  }
+  if (scenario.viewport !== undefined && !VIEWPORT_RE.test(String(scenario.viewport))) {
+    throw new Error(`${prefix}.viewport "${scenario.viewport}" is invalid (expected <w>x<h>x<dpr>[,mobile][,touch][,landscape])`);
+  }
+  if (scenario.maxNodeDelta !== undefined && !Number.isInteger(scenario.maxNodeDelta)) {
+    throw new Error(`${prefix}.maxNodeDelta must be an integer`);
   }
 }
