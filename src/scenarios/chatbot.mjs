@@ -1,5 +1,6 @@
 import { assert, sleep } from '../core/utils.mjs';
 import { countTextOccurrences, findBySpec, flatten, hasText } from '../core/snapshot.mjs';
+import { extractAnswer } from '../core/answer.mjs';
 
 export async function runScenarioSpec({ spec, item, profile, client, artifacts, timeoutMs }) {
   if (spec.viewport) await client.run(`emulate-${spec.name}`, ['emulate', '--viewport', spec.viewport]);
@@ -37,8 +38,18 @@ async function runQuestionScenario({ spec, item, profile, client, artifacts, tim
     return countTextOccurrences(snap, answerDoneText) >= beforeCount + 1;
   }, spec.timeoutMs || timeoutMs);
   assert(hasText(done, spec.text || ''), 'submitted text should appear in snapshot');
-  await artifacts.snapshot(`${item.name}-after`, item);
+  const after = await artifacts.snapshot(`${item.name}-after`, item);
   await artifacts.screenshot(`${item.name}-after`, item);
+  const { answerText, sources } = extractAnswer(after, {
+    questionText: spec.text || '',
+    doneText: answerDoneText,
+  });
+  item.evidence = {
+    category: spec.category || null,
+    question: spec.text || '',
+    answerText,
+    sources,
+  };
 }
 
 async function runEmptyInputScenario({ spec, item, profile, client, artifacts }) {
