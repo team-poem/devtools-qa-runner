@@ -7,7 +7,9 @@ const R2_LEAK = /(?:gemma|gpt|claude|llama|qwen|ollama|chroma|벡터\s*(?:디비
 const R2_META = /(?:^|\n)\s*(?:메뉴명|시기|연번|태그)\s*[:：]/;
 const R3_BULLET = /^\s*[-•*]\s+/m;
 const R3_KYOSUNIM = /교수님(?:께서|께|이|은|는|의|을|를|도)?/;
-const R3_REQUEST = /(?:해\s*주십시오|해\s*주세요|주시기\s*바랍니다|부탁\s*?드립니다)/;
+// 후처리(_normalize_tone)가 결정적으로 정규화하는 청유 종결만 회귀 검사한다.
+// "부탁드립니다"는 후처리가 손대지 않는 표현이라 hard-fail에서 제외(오탐 방지).
+const R3_REQUEST = /(?:해\s*주십시오|해\s*주세요|주시기\s*바랍니다)/;
 
 const RULES = [
   { id: 'R1', test: (r) => R1_URL.test(r.answerText || '') || (r.sources || []).some((s) => R1_URL.test(s.url || '')) },

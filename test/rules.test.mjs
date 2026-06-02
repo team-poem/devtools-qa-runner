@@ -39,6 +39,10 @@ test('R3 keeps numbered lists clean', () => {
   assert.ok(!runRules({ ...ok, answerText: '1. 번호를 입력합니다 2. 비밀번호를 입력합니다' }).fails.includes('R3'));
 });
 
+test('R3 does not flag plain 부탁드립니다 (post-processor does not normalize it)', () => {
+  assert.ok(!runRules({ ...ok, answerText: '교육혁신처 교수학습개발센터로 문의 부탁드립니다.' }).fails.includes('R3'));
+});
+
 test('R4 flags empty answer', () => {
   assert.ok(runRules({ ...ok, answerText: '   ' }).fails.includes('R4'));
 });
