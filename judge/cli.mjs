@@ -4,6 +4,7 @@ import path from 'node:path';
 import { parseArgs } from '../src/core/args.mjs';
 import { runRules } from './rules.mjs';
 import { writeJudgeArtifacts } from './report.mjs';
+import { judgeOne } from './llm-judge.mjs';
 
 const args = parseArgs(process.argv.slice(2));
 const reportDir = path.resolve(args.report || 'reports/faq-adversarial');
@@ -13,11 +14,17 @@ const maxLlmFail = Number(args['max-llm-fail'] ?? 0);
 const raw = await fs.readFile(path.join(reportDir, 'answers.jsonl'), 'utf8');
 const records = raw.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
 
-const verdicts = records.map((rec) => ({
-  ...rec,
-  rule: runRules(rec),
-  llm: null, // Task 10에서 채움
-}));
+const useLlm = Boolean(args.llm);
+const verdicts = [];
+for (const rec of records) {
+  const rule = runRules(rec);
+  let llm = null;
+  if (useLlm && rule.pass) {
+    try { llm = await judgeOne(rec); }
+    catch (err) { llm = { verdict: 'warn', scores: null, reason: `judge error: ${err.message}` }; }
+  }
+  verdicts.push({ ...rec, rule, llm });
+}
 
 await writeJudgeArtifacts(reportDir, verdicts, { profile });
 
