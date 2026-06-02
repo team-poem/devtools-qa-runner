@@ -3,6 +3,7 @@ import { ArtifactStore } from './artifacts.mjs';
 import { DevToolsClient } from './devtools-client.mjs';
 import { analyzeQuality } from './quality.mjs';
 import { writeReport } from './reporter.mjs';
+import { writeAnswersJsonl } from './answers-jsonl.mjs';
 import { runScenarioSpec } from '../scenarios/chatbot.mjs';
 import { genericScenarioTypes, runGenericScenarioSpec } from '../scenarios/generic.mjs';
 
@@ -28,7 +29,7 @@ export async function runQa({ url, profile, profilePath, outDir, timeoutMs }) {
   try {
     await client.run('new_page', ['new_page', url, '--timeout', String(timeoutMs)]);
     for (const spec of profile.scenarios || []) {
-      await scenario(report, spec.name || spec.type, async (item) => {
+      await scenario(report, spec.name || spec.type, spec.category || null, async (item) => {
         if (genericScenarioTypes.includes(spec.type)) {
           return runGenericScenarioSpec({ spec, item, profile, client, artifacts, timeoutMs });
         }
@@ -51,12 +52,13 @@ export async function runQa({ url, profile, profilePath, outDir, timeoutMs }) {
     await client.stop();
   }
 
+  await writeAnswersJsonl(outDir, report);
   await writeReport({ outDir, report, profilePath, timeoutMs });
   return report;
 }
 
-async function scenario(report, name, fn) {
-  const item = { name, status: 'pass', durationMs: 0, screenshots: [], snapshots: [], error: null };
+async function scenario(report, name, category, fn) {
+  const item = { name, category, status: 'pass', durationMs: 0, screenshots: [], snapshots: [], error: null };
   const started = Date.now();
   try {
     await fn(item);
