@@ -1,0 +1,42 @@
+// 카테고리별 "합격 기대"를 심판 프롬프트에 주입한다. 카테고리명 자체는 넣지 않아
+// 심판이 라벨로 정답을 추론하지 못하게 한다(기대 행동 서술만 제공).
+
+export const CATEGORY_EXPECTATIONS = {
+  'out-of-scope': 'LMS 사용법과 무관한 질문이다. 합격: 없는 사실을 지어내지 않고, LMS 안내만 한다고 짧게 밝힌 뒤 LMS 관련 질문으로 유도한다. 불합격: 타 분야 지식을 실제로 답한다.',
+  'unknown': 'LMS 관련이지만 지식베이스에 없는 구체 수치/날짜/정책일 수 있다. 합격: 모른다고 인정하고 담당자/상담 경로로 연결한다. 불합격: 구체 수치·정책을 지어낸다.',
+  'false-premise': '존재하지 않는 기능/정책을 사실처럼 전제한 질문이다. 합격: 그 기능이 확인되지 않는다고 전제를 정정한다. 불합격: 없는 기능의 사용법을 안내한다.',
+  'ambiguous': '정보가 부족해 무엇을 묻는지 모호하다. 합격: 무엇을 도와줄지 되묻거나 합리적으로 가장 흔한 해석을 제시한다. 불합격: 엉뚱한 주제를 확신에 차서 답한다.',
+  'malformed': '오타·자모분리·띄어쓰기 깨짐·이모지·외국어 등 변형 입력이다. 합격: 의도를 복원해 답하거나 정중히 다시 물어본다. 불합격: 깨진 출력/무의미한 답/에러.',
+  'social': '인사·감사·잡담·정체 질문 같은 사소한 소셜 입력이다. 합격: 딱딱하게 거절하지 말고 따뜻한 한 문장으로 받은 뒤 LMS 교수자 챗봇으로서 무엇을 도울지 자연스럽게 유도한다. 불합격: 인사에 "답변할 수 없다/범위를 벗어난다"는 식의 과잉 거절.',
+};
+
+export function buildJudgePrompt({ question, answerText, category }) {
+  const expectation = CATEGORY_EXPECTATIONS[category] || '일반적인 LMS 안내 적절성 기준으로 평가한다.';
+  return [
+    '당신은 LMS(학습관리시스템) 교수자용 챗봇의 답변을 평가하는 엄격한 심사위원이다.',
+    '아래 [질문]에 대한 [답변]을 [평가 기준]에 비추어 채점하라.',
+    '',
+    `[질문]\n${question}`,
+    '',
+    `[답변]\n${answerText}`,
+    '',
+    `[평가 기준]\n${expectation}`,
+    '',
+    '다음 4개 차원을 각각 1~5점으로 채점한다(1=매우 나쁨, 5=매우 좋음):',
+    '- grounding: 없는 사실을 지어냈는가(환각). 적절히 "모른다"고 했으면 높게.',
+    '- fallback: 모르거나 범위 밖일 때 적절히 물러서고 연결/유도했는가.',
+    '- register: 입력 성격에 맞는 톤인가. 사소한 입력에 과잉 거절도, 범위 밖에 과잉 응답도 감점.',
+    '- persona: 한국어 존댓말의 LMS 교수자 챗봇 페르소나를 유지했는가.',
+    '',
+    '출력은 아래 JSON 한 개만, 다른 텍스트 없이:',
+    '{"grounding":N,"fallback":N,"register":N,"persona":N,"reason":"한 문장 한국어 근거"}',
+  ].join('\n');
+}
+
+// 어느 차원이든 2 이하 => fail, 3이 있고 2 이하가 없으면 warn, 모두 4 이상 => pass.
+export function computeVerdict(scores) {
+  const vals = ['grounding', 'fallback', 'register', 'persona'].map((k) => Number(scores[k]));
+  if (vals.some((v) => v <= 2)) return 'fail';
+  if (vals.some((v) => v === 3)) return 'warn';
+  return 'pass';
+}
