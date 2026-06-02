@@ -11,7 +11,16 @@ const reportDir = path.resolve(args.report || 'reports/faq-adversarial');
 const profile = args.profile || 'lms-faq-adversarial';
 const maxLlmFail = Number(args['max-llm-fail'] ?? 0);
 
-const raw = await fs.readFile(path.join(reportDir, 'answers.jsonl'), 'utf8');
+let raw;
+try {
+  raw = await fs.readFile(path.join(reportDir, 'answers.jsonl'), 'utf8');
+} catch (err) {
+  if (err.code === 'ENOENT') {
+    console.error(`answers.jsonl not found in ${reportDir}. 먼저 \`npm run qa:adversarial\` 로 캡처하십시오.`);
+    process.exit(1);
+  }
+  throw err;
+}
 const records = raw.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
 
 const useLlm = Boolean(args.llm);
