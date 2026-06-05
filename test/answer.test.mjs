@@ -38,3 +38,13 @@ test('extractAnswer returns empty answerText when question not found', () => {
   assert.equal(r.answerText, '');
   assert.deepEqual(r.sources, []);
 });
+
+test('extractAnswer matches the question across whitespace differences', () => {
+  // 제출 텍스트엔 공백 두 칸, 렌더된 DOM 노드는 한 칸(브라우저가 합침).
+  // 정확 비교면 질문 경계를 못 찾아 빈 답변을 반환한다(실제 faq-33 버그).
+  const r = extractAnswer(snapshot, {
+    questionText: '오늘  날씨  어때?',
+    doneText: '이 응답이 도움이 되었습니까?',
+  });
+  assert.equal(r.answerText, '본 챗봇은 LMS 사용법 안내만 제공합니다.');
+});

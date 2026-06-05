@@ -1,4 +1,4 @@
-import { flatten } from './snapshot.mjs';
+import { flatten, normalizeWs } from './snapshot.mjs';
 
 const SOURCE_HEADING = '관련 문서';
 
@@ -7,10 +7,12 @@ const SOURCE_HEADING = '관련 문서';
 // '관련 문서' 헤딩 이후의 StaticText 는 출처 캡션이므로 답변에서 제외한다.
 export function extractAnswer(snapshot, { questionText, doneText }) {
   const nodes = flatten(snapshot);
-  const q = String(questionText || '').trim();
+  // 공백 정규화 후 비교한다. 브라우저가 렌더 시 연속 공백을 한 칸으로 합치므로
+  // 제출 텍스트의 두 칸 공백(원문 오타 등)이 그대로면 질문 경계를 못 찾는다(faq-33).
+  const q = normalizeWs(questionText);
   let qIdx = -1;
   for (let i = 0; i < nodes.length; i++) {
-    if (String(nodes[i].name || '').trim() === q) qIdx = i; // 마지막 출현
+    if (normalizeWs(nodes[i].name) === q) qIdx = i; // 마지막 출현
   }
   if (qIdx === -1) return { answerText: '', sources: [] };
 
