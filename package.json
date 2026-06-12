@@ -16,10 +16,15 @@
     ".": "./src/index.mjs"
   },
   "bin": {
-    "devtools-qa-runner": "src/cli.mjs"
+    "devtools-qa-runner": "src/cli.mjs",
+    "devtools-qa-runner-judge": "judge/cli.mjs",
+    "devtools-qa-runner-human-report": "report/human-report.mjs",
+    "devtools-qa-runner-human-report-html": "report/human-report-html.mjs"
   },
   "files": [
     "src",
+    "judge",
+    "report",
     "profiles",
     "examples",
     "docs",
