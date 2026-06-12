@@ -20,12 +20,48 @@ test('analyzeQuality flags 5xx as failure and 4xx as warning', () => {
   assert.match(result.warnings[0], /404/);
 });
 
-test('analyzeQuality reports console errors as warnings', () => {
+test('analyzeQuality fails on transport-layer network failures (regression)', () => {
   const result = analyzeQuality({
-    consoleMessages: { consoleMessages: [{ type: 'error', text: 'boom' }] },
+    networkRequests: {
+      networkRequests: [
+        { method: 'GET', url: 'https://x/api', status: 'net::ERR_CONNECTION_REFUSED' },
+        { method: 'GET', url: 'https://x/ok', status: '200' },
+      ],
+    },
+  });
+  assert.equal(result.status, 'fail');
+  assert.equal(result.failures.length, 1);
+  assert.match(result.failures[0], /net::ERR_CONNECTION_REFUSED/);
+});
+
+test('analyzeQuality does not fail on pending requests', () => {
+  const result = analyzeQuality({
+    networkRequests: { networkRequests: [{ method: 'GET', url: 'https://x/slow', status: 'pending' }] },
+  });
+  assert.equal(result.status, 'pass');
+});
+
+test('analyzeQuality reports console errors and asserts as warnings', () => {
+  const result = analyzeQuality({
+    consoleMessages: { consoleMessages: [
+      { type: 'error', text: 'boom' },
+      { type: 'assert', text: 'assertion failed' },
+      { type: 'log', text: 'ignored noise' },
+    ] },
   });
   assert.equal(result.status, 'warning');
+  assert.equal(result.warnings.length, 2);
   assert.equal(result.warnings[0], 'Console error: boom');
+  assert.equal(result.warnings[1], 'Console assert: assertion failed');
+});
+
+test('analyzeQuality honors ignoreFavicon404 even with a cache-buster query', () => {
+  const result = analyzeQuality(
+    { networkRequests: { networkRequests: [{ method: 'GET', url: 'https://x/favicon.ico?v=2', status: '404' }] } },
+    { ignoreFavicon404: true },
+  );
+  assert.equal(result.status, 'pass');
+  assert.equal(result.warnings.length, 0);
 });
 
 test('analyzeQuality honors ignoreFavicon404', () => {

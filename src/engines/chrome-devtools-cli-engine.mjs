@@ -5,6 +5,11 @@ import { BrowserEngine } from './browser-engine.mjs';
 
 const execFileAsync = promisify(execFile);
 
+// chrome-devtools can emit large JSON payloads for snapshots or preserved
+// network/console history. Node's default 1 MiB stdout buffer is too small for
+// real apps, so give CLI invocations generous headroom.
+const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
+
 export class ChromeDevtoolsCliEngine extends BrowserEngine {
   constructor({ timeoutMs, cwd = process.cwd(), report = { commands: [] } }) {
     super();
@@ -23,6 +28,7 @@ export class ChromeDevtoolsCliEngine extends BrowserEngine {
       const { stdout, stderr } = await execFileAsync('npx', ['chrome-devtools', ...cliArgs, '--output-format=json'], {
         cwd: this.cwd,
         timeout: Math.max(this.timeoutMs, 60000),
+        maxBuffer: MAX_OUTPUT_BYTES,
         env: {
           ...process.env,
           CI: '1',

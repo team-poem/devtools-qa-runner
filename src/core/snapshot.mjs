@@ -9,7 +9,12 @@ export function flatten(root) {
   return nodes;
 }
 
-export function findBySpec(root, spec = {}) {
+export function findBySpec(root, spec) {
+  // A selector needs at least one POSITIVE matcher (role or nameIncludes).
+  // Without one — a missing selector, {}, or an exclude-only spec — findBySpec
+  // would otherwise match the first non-excluded node (usually the root) and the
+  // scenario would act on the wrong element.
+  if (!spec || (!spec.role && !spec.nameIncludes)) return undefined;
   return flatten(root).find((node) => {
     if (spec.role && node.role !== spec.role) return false;
     if (spec.nameIncludes && !String(node.name || '').includes(spec.nameIncludes)) return false;

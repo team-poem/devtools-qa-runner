@@ -42,7 +42,7 @@ Required selectors for chatbot-style profiles:
 
 `answerDoneText` is optional. When set, `question` scenarios wait for an extra occurrence of this text to confirm the answer finished; when omitted, they wait only for the submitted text to appear.
 
-Optional consent selectors:
+Consent selectors:
 
 ```json
 {
@@ -50,6 +50,19 @@ Optional consent selectors:
   "consentLabelInput": { "role": "textbox", "excludeNameIncludes": ["Ask"] }
 }
 ```
+
+`consentAgreeButton` is **required** when any `consent` scenario is present (validation fails otherwise). `consentLabelInput` is optional and only used when a consent scenario carries a `label`.
+
+> A selector must include at least one positive matcher (`role` or `nameIncludes`); an exclude-only selector matches nothing.
+
+## Common scenario fields
+
+These apply to every scenario type:
+
+- `type` (required): one of the scenario types below.
+- `name`: label used for artifacts and report entries (defaults to `type`).
+- `viewport`: emulate a device viewport before the scenario runs. Format `"<width>x<height>x<devicePixelRatio>[,mobile][,touch][,landscape]"`, e.g. `"390x844x2,mobile,touch"`. Validated at load time; a malformed value is rejected.
+- `timeoutMs`: per-scenario override for the wait budget (falls back to the global `--timeout`; `consent` uses a fixed 10s).
 
 ## Scenarios
 
@@ -80,9 +93,9 @@ Fills `selectors.chatInput`, presses Enter, then waits for the submitted text to
 
 ### `empty-input`
 
-Attempts to submit empty/blank input and asserts the accessibility tree does not materially change (i.e. no new answer was produced).
+Attempts to submit empty/blank input and asserts no new answer was produced. Two oracles run: if `selectors.answerDoneText` is set, the count of that marker must not increase (catches an app that echoes blank input by reusing nodes); and the accessibility tree must not grow by more than `maxNodeDelta` nodes.
 
-`maxNodeDelta` (default `2`) is the number of additional accessibility nodes tolerated after submitting blank input — raise it if the UI legitimately shows an aria-live validation hint on empty submit.
+`maxNodeDelta` (default `2`, must be an integer) is the number of additional accessibility nodes tolerated after submitting blank input — raise it if the UI legitimately shows an aria-live validation hint on empty submit.
 
 ```json
 {
@@ -96,7 +109,7 @@ Attempts to submit empty/blank input and asserts the accessibility tree does not
 
 ### `fill`
 
-Takes a snapshot, finds `target`, fills it with `value`, and optionally presses `submitKey`.
+Takes a snapshot, finds `target`, fills it with `value`, and optionally presses `submitKey`. Set `screenshot: true` to capture an after-screenshot (default: off for `fill`).
 
 ```json
 {
@@ -104,13 +117,14 @@ Takes a snapshot, finds `target`, fills it with `value`, and optionally presses 
   "name": "fill-search",
   "target": { "role": "textbox", "nameIncludes": "Search" },
   "value": "hello world",
-  "submitKey": "Enter"
+  "submitKey": "Enter",
+  "screenshot": true
 }
 ```
 
 ### `click`
 
-Takes a snapshot, finds `target`, and clicks it.
+Takes a snapshot, finds `target`, and clicks it. Captures an after-screenshot unless `screenshot: false`.
 
 ```json
 {
@@ -147,14 +161,17 @@ Polls snapshots until text appears.
 
 ### `screenshot`
 
-Captures a screenshot artifact.
+Captures a screenshot artifact. `fileName` overrides the artifact base name (defaults to the scenario `name`).
 
 ```json
 {
   "type": "screenshot",
-  "name": "after-submit"
+  "name": "after-submit",
+  "fileName": "home-hero"
 }
 ```
+
+> Screenshot defaults differ by scenario: `click`, `wait-for-text`, and the chatbot scenarios capture an after-screenshot unless `screenshot: false`; `fill` captures one only when `screenshot: true`.
 
 ### `assert-js`
 
@@ -184,7 +201,7 @@ Fails the scenario if DevTools reports console messages of type `error`. Use `ig
 
 ### `assert-no-http-errors`
 
-Fails the scenario if DevTools reports HTTP 4xx/5xx responses. Use `ignoreFavicon404`, `ignoreUrlIncludes`, or `failOn4xx: false` to tune strictness.
+Fails the scenario if DevTools reports HTTP 4xx/5xx responses **or transport-layer failures** (`net::ERR_*` such as connection-refused / DNS failure / blocked). Use `ignoreFavicon404`, `ignoreUrlIncludes`, or `failOn4xx: false` to tune strictness. `failOn4xx: false` relaxes only numeric 4xx — transport failures are always reported.
 
 ```json
 {
@@ -211,8 +228,9 @@ Fails the scenario if DevTools reports HTTP 4xx/5xx responses. Use `ignoreFavico
 
 Current quality checks:
 
-- Console errors become warnings unless their text includes an `ignoreConsoleTextIncludes` entry.
+- Console `error` and `assert` messages become warnings unless their text includes an `ignoreConsoleTextIncludes` entry.
 - HTTP requests whose URL includes any `ignoreUrlIncludes` entry are skipped.
-- HTTP 5xx responses become failures.
-- HTTP 4xx responses become warnings unless ignored favicon 404.
+- HTTP 5xx responses and transport-layer failures (`net::ERR_*`) become failures.
+- HTTP 4xx responses become warnings unless an ignored favicon 404 (matched by URL pathname, so query strings/cache-busters are still ignored).
+- In-flight (`pending`) requests are not treated as failures.
 - Lighthouse scores below thresholds become warnings/failures.

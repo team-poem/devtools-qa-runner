@@ -37,6 +37,12 @@ test('findBySpec supports excluded name substrings', () => {
   }), undefined);
 });
 
+test('findBySpec returns undefined for an empty/missing spec (does not match root)', () => {
+  assert.equal(findBySpec(snapshot, undefined), undefined);
+  assert.equal(findBySpec(snapshot, {}), undefined);
+  assert.equal(findBySpec(snapshot, { excludeNameIncludes: ['x'] }), undefined);
+});
+
 test('text helpers find and count visible names', () => {
   assert.equal(hasText(snapshot, 'How do I start?'), true);
   assert.equal(hasText(snapshot, 'Missing'), false);

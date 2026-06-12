@@ -35,21 +35,45 @@ export async function runQa({ url, profile, profilePath, outDir, timeoutMs, engi
         return runScenario({ spec, item, profile, engine: activeEngine, artifacts, timeoutMs });
       });
     }
-    report.consoleMessages = await activeEngine.listConsoleMessages({ includePreservedMessages: true });
-    report.networkRequests = await activeEngine.listNetworkRequests({ includePreservedRequests: true });
-    report.lighthouse = await activeEngine.lighthouseAudit({
-      mode: 'snapshot',
-      device: 'desktop',
-      outputDirPath: path.join(outDir, 'lighthouse'),
-    });
+    // Post-scenario collection. Each call is isolated so one failure (e.g. a
+    // Lighthouse timeout, or an oversized response) records its error and lets
+    // the rest — and the persisted report — still complete.
+    report.consoleMessages = await collect(report, 'list_console_messages', () =>
+      activeEngine.listConsoleMessages({ includePreservedMessages: true }));
+    report.networkRequests = await collect(report, 'list_network_requests', () =>
+      activeEngine.listNetworkRequests({ includePreservedRequests: true }));
+    report.lighthouse = await collect(report, 'lighthouse_audit', () =>
+      activeEngine.lighthouseAudit({
+        mode: 'snapshot',
+        device: 'desktop',
+        outputDirPath: path.join(outDir, 'lighthouse'),
+      }));
     report.quality = analyzeQuality(report, profile.quality || {});
   } finally {
     await activeEngine.stop();
+    // Always persist artifacts best-effort, even if a step above threw.
+    await writeAnswersJsonl(outDir, report).catch((err) => {
+      report.answersWriteError = err?.message || String(err);
+    });
+    await writeReport({ outDir, report, profilePath, timeoutMs }).catch((err) => {
+      report.reportWriteError = err?.message || String(err);
+    });
   }
 
-  await writeAnswersJsonl(outDir, report);
-  await writeReport({ outDir, report, profilePath, timeoutMs });
   return report;
+}
+
+// Run a post-scenario collection step, capturing any failure onto the report
+// instead of aborting the whole run. Returns null on failure so downstream
+// analysis treats the data as absent rather than crashing.
+async function collect(report, name, fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    report.collectionErrors = report.collectionErrors || {};
+    report.collectionErrors[name] = err?.message || String(err);
+    return null;
+  }
 }
 
 async function scenario(report, name, category, fn) {

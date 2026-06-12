@@ -60,3 +60,40 @@ test('validateProfile rejects unsupported scenario types', () => {
     scenarios: [{ type: 'click-random' }],
   }), /unsupported scenario type/);
 });
+
+test('validateProfile requires consentAgreeButton for consent scenarios', () => {
+  assert.throws(() => validateProfile({
+    name: 'consent-no-button',
+    selectors: { chatInput: { role: 'textbox' } },
+    scenarios: [{ type: 'consent', name: 'consent-flow' }],
+  }), /consentAgreeButton is required for consent scenarios/);
+
+  assert.doesNotThrow(() => validateProfile({
+    name: 'consent-ok',
+    selectors: {
+      chatInput: { role: 'textbox', nameIncludes: 'Ask' },
+      consentAgreeButton: { role: 'button', nameIncludes: 'Agree' },
+    },
+    scenarios: [{ type: 'consent', name: 'consent-flow' }],
+  }));
+});
+
+test('validateProfile rejects malformed viewport strings', () => {
+  assert.throws(() => validateProfile({
+    name: 'bad-viewport',
+    scenarios: [{ type: 'screenshot', name: 's', viewport: '390x844' }],
+  }), /viewport .* is invalid/);
+
+  assert.doesNotThrow(() => validateProfile({
+    name: 'good-viewport',
+    scenarios: [{ type: 'screenshot', name: 's', viewport: '390x844x2,mobile,touch' }],
+  }));
+});
+
+test('validateProfile rejects non-integer maxNodeDelta', () => {
+  assert.throws(() => validateProfile({
+    name: 'bad-delta',
+    selectors: { chatInput: { role: 'textbox' } },
+    scenarios: [{ type: 'empty-input', name: 'e', maxNodeDelta: 1.5 }],
+  }), /maxNodeDelta must be an integer/);
+});
