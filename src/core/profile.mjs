@@ -1,27 +1,18 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { chatbotScenarioTypes } from '../scenarios/chatbot.mjs';
+import { genericScenarioTypes } from '../scenarios/generic.mjs';
 
-const supportedScenarioTypes = [
-  'consent',
-  'question',
-  'empty-input',
-  'click',
-  'fill',
-  'press-key',
-  'wait-for-text',
-  'screenshot',
-  'assert-no-console-errors',
-  'assert-no-http-errors',
-];
+const defaultSupportedScenarioTypes = [...chatbotScenarioTypes, ...genericScenarioTypes];
 
-export async function loadProfile(profilePath) {
+export async function loadProfile(profilePath, options = {}) {
   const resolved = path.resolve(profilePath);
   const profile = JSON.parse(await fs.readFile(resolved, 'utf8'));
-  validateProfile(profile, resolved);
+  validateProfile(profile, resolved, options);
   return { profile, profilePath: resolved };
 }
 
-export function validateProfile(profile, source = '<profile>') {
+export function validateProfile(profile, source = '<profile>', options = {}) {
   if (!profile || typeof profile !== 'object') throw new Error(`${source}: profile must be an object`);
   if (!profile.name) throw new Error(`${source}: profile.name is required`);
   if (!Array.isArray(profile.scenarios) || profile.scenarios.length === 0) {
@@ -40,7 +31,8 @@ export function validateProfile(profile, source = '<profile>') {
 
   for (const [index, scenario] of profile.scenarios.entries()) {
     if (!scenario.type) throw new Error(`${source}: scenarios[${index}].type is required`);
-    if (!supportedScenarioTypes.includes(scenario.type)) {
+    const supportedScenarioTypes = options.supportedScenarioTypes || defaultSupportedScenarioTypes;
+    if (!options.allowUnknownScenarioTypes && !supportedScenarioTypes.includes(scenario.type)) {
       throw new Error(`${source}: unsupported scenario type ${scenario.type}`);
     }
     validateScenarioFields(scenario, index, source);

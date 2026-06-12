@@ -173,6 +173,20 @@ Captures a screenshot artifact. `fileName` overrides the artifact base name (def
 
 > Screenshot defaults differ by scenario: `click`, `wait-for-text`, and the chatbot scenarios capture an after-screenshot unless `screenshot: false`; `fill` captures one only when `screenshot: true`.
 
+### `assert-js`
+
+Runs a JavaScript function in the page and fails unless the returned value is truthy. If the function returns an object with a `pass` field, `pass` controls the assertion and the full object is stored as evidence.
+
+```json
+{
+  "type": "assert-js",
+  "name": "no-horizontal-overflow",
+  "script": "() => ({ pass: document.documentElement.scrollWidth <= window.innerWidth, details: { scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth } })"
+}
+```
+
+Use this for DOM/layout checks such as responsive overflow, element bounding boxes, and section membership.
+
 ### `assert-no-console-errors`
 
 Fails the scenario if DevTools reports console messages of type `error`. Use `ignoreTextIncludes` for known noisy messages.
@@ -205,6 +219,8 @@ Fails the scenario if DevTools reports HTTP 4xx/5xx responses **or transport-lay
 {
   "ignoreSeo": true,
   "ignoreFavicon404": true,
+  "ignoreUrlIncludes": ["/healthcheck"],
+  "ignoreConsoleTextIncludes": ["known benign console text"],
   "lighthouseFailBelow": 0.8,
   "lighthouseWarnBelow": 0.9
 }
@@ -212,7 +228,8 @@ Fails the scenario if DevTools reports HTTP 4xx/5xx responses **or transport-lay
 
 Current quality checks:
 
-- Console `error` and `assert` messages become warnings.
+- Console `error` and `assert` messages become warnings unless their text includes an `ignoreConsoleTextIncludes` entry.
+- HTTP requests whose URL includes any `ignoreUrlIncludes` entry are skipped.
 - HTTP 5xx responses and transport-layer failures (`net::ERR_*`) become failures.
 - HTTP 4xx responses become warnings unless an ignored favicon 404 (matched by URL pathname, so query strings/cache-busters are still ignored).
 - In-flight (`pending`) requests are not treated as failures.

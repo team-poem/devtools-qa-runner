@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runScenarioSpec } from '../src/scenarios/chatbot.mjs';
 
-// Minimal fakes. The chatbot scenarios only touch client.run() and an
-// ArtifactStore-like object exposing snapshot()/screenshot()/waitForSnapshot().
+// Minimal fakes. The chatbot scenarios only touch BrowserEngine-style methods
+// and an ArtifactStore-like object exposing snapshot()/screenshot()/waitForSnapshot().
 
 function makeArtifacts(snapshots) {
   // snapshots: array consumed in order by snapshot(); waitForSnapshot resolves
@@ -21,11 +21,12 @@ function makeArtifacts(snapshots) {
   };
 }
 
-const client = { async run() {} };
-
-function tree(...names) {
-  return { role: 'RootWebArea', name: 'app', children: names.map((n, idx) => ({ id: String(idx + 1), role: 'StaticText', name: n })) };
-}
+const engine = {
+  async emulate() {},
+  async click() {},
+  async fill() {},
+  async pressKey() {},
+};
 
 const chatInputTree = (...extra) => ({
   role: 'RootWebArea', name: 'app',
@@ -40,7 +41,7 @@ test('question scenario passes once submitted text and a new answer marker appea
   const item = { name: 'q', snapshots: [], screenshots: [] };
   await assert.doesNotReject(runScenarioSpec({
     spec: { type: 'question', name: 'q', text: 'My question' },
-    item, profile, client, artifacts, timeoutMs: 1000,
+    item, profile, engine, artifacts, timeoutMs: 1000,
   }));
 });
 
@@ -52,7 +53,7 @@ test('question scenario passes on submitted text alone when answerDoneText is un
   const item = { name: 'q', snapshots: [], screenshots: [] };
   await assert.doesNotReject(runScenarioSpec({
     spec: { type: 'question', name: 'q', text: 'My question' },
-    item, profile, client, artifacts, timeoutMs: 1000,
+    item, profile, engine, artifacts, timeoutMs: 1000,
   }));
 });
 
@@ -64,7 +65,7 @@ test('empty-input scenario fails when a new answer marker appears (count-only or
   const artifacts = makeArtifacts([before, after]);
   const item = { name: 'e', snapshots: [], screenshots: [] };
   await assert.rejects(
-    runScenarioSpec({ spec: { type: 'empty-input', name: 'e', waitMs: 0 }, item, profile, client, artifacts, timeoutMs: 1000 }),
+    runScenarioSpec({ spec: { type: 'empty-input', name: 'e', waitMs: 0 }, item, profile, engine, artifacts, timeoutMs: 1000 }),
     /should not produce a new answer/,
   );
 });
@@ -76,7 +77,7 @@ test('empty-input scenario passes when nothing materially changes', async () => 
   const artifacts = makeArtifacts([before, after]);
   const item = { name: 'e', snapshots: [], screenshots: [] };
   await assert.doesNotReject(
-    runScenarioSpec({ spec: { type: 'empty-input', name: 'e', waitMs: 0 }, item, profile, client, artifacts, timeoutMs: 1000 }),
+    runScenarioSpec({ spec: { type: 'empty-input', name: 'e', waitMs: 0 }, item, profile, engine, artifacts, timeoutMs: 1000 }),
   );
 });
 
@@ -87,7 +88,7 @@ test('empty-input scenario fails when the tree grows beyond maxNodeDelta', async
   const artifacts = makeArtifacts([before, after]);
   const item = { name: 'e', snapshots: [], screenshots: [] };
   await assert.rejects(
-    runScenarioSpec({ spec: { type: 'empty-input', name: 'e', waitMs: 0 }, item, profile, client, artifacts, timeoutMs: 1000 }),
+    runScenarioSpec({ spec: { type: 'empty-input', name: 'e', waitMs: 0 }, item, profile, engine, artifacts, timeoutMs: 1000 }),
     /should not materially change/,
   );
 });

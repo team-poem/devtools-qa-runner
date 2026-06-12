@@ -11,10 +11,16 @@ export function analyzeQuality(r, quality = {}) {
   const warnings = [];
 
   for (const msg of r.consoleMessages?.consoleMessages || []) {
-    if (CONSOLE_ERROR_TYPES.has(msg.type)) warnings.push(`Console ${msg.type}: ${msg.text}`);
+    const text = String(msg.text || '');
+    const isIgnoredConsole = (quality.ignoreConsoleTextIncludes || []).some((part) => text.includes(part));
+    if (CONSOLE_ERROR_TYPES.has(msg.type) && !isIgnoredConsole) warnings.push(`Console ${msg.type}: ${msg.text}`);
   }
 
   for (const req of r.networkRequests?.networkRequests || []) {
+    const url = String(req.url || '');
+    const isIgnoredUrl = (quality.ignoreUrlIncludes || []).some((part) => url.includes(part));
+    if (isIgnoredUrl) continue;
+
     const cls = classifyNetworkStatus(req.status);
     const label = `${req.method} ${req.url} -> ${req.status}`;
     if (cls.kind === 'server-error' || cls.kind === 'transport-error') {

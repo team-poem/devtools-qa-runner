@@ -12,11 +12,19 @@
     "mcp",
     "lighthouse"
   ],
+  "exports": {
+    ".": "./src/index.mjs"
+  },
   "bin": {
-    "devtools-qa-runner": "src/cli.mjs"
+    "devtools-qa-runner": "src/cli.mjs",
+    "devtools-qa-runner-judge": "judge/cli.mjs",
+    "devtools-qa-runner-human-report": "report/human-report.mjs",
+    "devtools-qa-runner-human-report-html": "report/human-report-html.mjs"
   },
   "files": [
     "src",
+    "judge",
+    "report",
     "profiles",
     "examples",
     "docs",
@@ -24,7 +32,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "check": "find src test -name '*.mjs' -print0 | xargs -0 -n1 node --check",
+    "check": "find src test judge -name '*.mjs' -print0 | xargs -0 -n1 node --check",
     "test": "node --test test/*.test.mjs",
     "smoke:lms": "node src/cli.mjs --url ${TARGET_URL:-https://example.com} --profile profiles/lms-chatbot.json --timeout 120000",
     "pack:dry": "npm pack --dry-run"
