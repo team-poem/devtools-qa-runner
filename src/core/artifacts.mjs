@@ -3,9 +3,9 @@ import path from 'node:path';
 import { safeName, sleep } from './utils.mjs';
 
 export class ArtifactStore {
-  constructor({ outDir, client }) {
+  constructor({ outDir, engine, client }) {
     this.outDir = outDir;
-    this.client = client;
+    this.engine = engine || client;
     this.counter = 0;
   }
 
@@ -19,7 +19,7 @@ export class ArtifactStore {
 
   async snapshot(name, item = null) {
     const rel = `snapshots/${String(++this.counter).padStart(2, '0')}-${safeName(name)}.json`;
-    const result = await this.client.run(`snapshot-${name}`, ['take_snapshot']);
+    const result = await this.engine.takeSnapshot({ name: `snapshot-${name}` });
     await fs.writeFile(path.join(this.outDir, rel), JSON.stringify(result, null, 2));
     if (item) item.snapshots.push(rel);
     return result.snapshot || result;
@@ -27,7 +27,7 @@ export class ArtifactStore {
 
   async screenshot(name, item = null) {
     const rel = `screenshots/${String(++this.counter).padStart(2, '0')}-${safeName(name)}.png`;
-    await this.client.run(`screenshot-${name}`, ['take_screenshot', '--filePath', path.join(this.outDir, rel), '--fullPage']);
+    await this.engine.takeScreenshot(path.join(this.outDir, rel), { name: `screenshot-${name}`, fullPage: true });
     if (item) item.screenshots.push(rel);
   }
 
@@ -35,7 +35,7 @@ export class ArtifactStore {
   // or advance the artifact counter, so poll iterations don't flood the output
   // directory or scramble the numbering of persisted artifacts.
   async pollSnapshot() {
-    const result = await this.client.run('snapshot-poll', ['take_snapshot']);
+    const result = await this.engine.takeSnapshot({ name: 'snapshot-poll' });
     return result.snapshot || result;
   }
 

@@ -12,6 +12,9 @@
     "mcp",
     "lighthouse"
   ],
+  "exports": {
+    ".": "./src/index.mjs"
+  },
   "bin": {
     "devtools-qa-runner": "src/cli.mjs"
   },

@@ -3,12 +3,17 @@ export function analyzeQuality(r, quality = {}) {
   const warnings = [];
 
   for (const msg of r.consoleMessages?.consoleMessages || []) {
-    if (msg.type === 'error') warnings.push(`Console error: ${msg.text}`);
+    const text = String(msg.text || '');
+    const isIgnoredConsole = (quality.ignoreConsoleTextIncludes || []).some((part) => text.includes(part));
+    if (msg.type === 'error' && !isIgnoredConsole) warnings.push(`Console error: ${msg.text}`);
   }
 
   for (const req of r.networkRequests?.networkRequests || []) {
     const status = Number(req.status);
-    const isFavicon = String(req.url).endsWith('/favicon.ico');
+    const url = String(req.url || '');
+    const isFavicon = url.endsWith('/favicon.ico');
+    const isIgnoredUrl = (quality.ignoreUrlIncludes || []).some((part) => url.includes(part));
+    if (isIgnoredUrl) continue;
     if (status >= 500) failures.push(`${req.method} ${req.url} -> ${req.status}`);
     else if (status >= 400 && !(quality.ignoreFavicon404 && isFavicon)) warnings.push(`${req.method} ${req.url} -> ${req.status}`);
   }

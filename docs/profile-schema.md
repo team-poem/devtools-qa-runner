@@ -156,6 +156,20 @@ Captures a screenshot artifact.
 }
 ```
 
+### `assert-js`
+
+Runs a JavaScript function in the page and fails unless the returned value is truthy. If the function returns an object with a `pass` field, `pass` controls the assertion and the full object is stored as evidence.
+
+```json
+{
+  "type": "assert-js",
+  "name": "no-horizontal-overflow",
+  "script": "() => ({ pass: document.documentElement.scrollWidth <= window.innerWidth, details: { scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth } })"
+}
+```
+
+Use this for DOM/layout checks such as responsive overflow, element bounding boxes, and section membership.
+
 ### `assert-no-console-errors`
 
 Fails the scenario if DevTools reports console messages of type `error`. Use `ignoreTextIncludes` for known noisy messages.
@@ -188,6 +202,8 @@ Fails the scenario if DevTools reports HTTP 4xx/5xx responses. Use `ignoreFavico
 {
   "ignoreSeo": true,
   "ignoreFavicon404": true,
+  "ignoreUrlIncludes": ["/healthcheck"],
+  "ignoreConsoleTextIncludes": ["known benign console text"],
   "lighthouseFailBelow": 0.8,
   "lighthouseWarnBelow": 0.9
 }
@@ -195,7 +211,8 @@ Fails the scenario if DevTools reports HTTP 4xx/5xx responses. Use `ignoreFavico
 
 Current quality checks:
 
-- Console errors become warnings.
+- Console errors become warnings unless their text includes an `ignoreConsoleTextIncludes` entry.
+- HTTP requests whose URL includes any `ignoreUrlIncludes` entry are skipped.
 - HTTP 5xx responses become failures.
 - HTTP 4xx responses become warnings unless ignored favicon 404.
 - Lighthouse scores below thresholds become warnings/failures.

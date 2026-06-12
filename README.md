@@ -67,6 +67,35 @@ Supported scenario types in this prototype:
 - Chatbot-oriented: `consent`, `question`, `empty-input`
 - Generic primitives: `click`, `fill`, `press-key`, `wait-for-text`, `screenshot`, `assert-no-console-errors`, `assert-no-http-errors`
 
+## Private package architecture
+
+This package is intentionally kept private while the reusable runner shape stabilizes. It is not limited to the LMS chatbot: LMS-specific behavior should live in profiles or scenario plugins, while the core stays generic.
+
+Current extension seams:
+
+- `BrowserEngine`: backend adapter contract for browser automation. The default `ChromeDevtoolsCliEngine` wraps the experimental `chrome-devtools` CLI from `chrome-devtools-mcp`; future engines can talk to MCP directly, use Playwright, or embed browser control in a desktop app.
+- `ScenarioPlugin`: registry-based scenario extension point. Built-in chatbot and generic scenario plugins register their scenario `type` handlers through `createDefaultScenarioRegistry()`.
+- `runQa()`: reusable core exported from `src/index.mjs` for CLI, CI, and future app integrations.
+
+Minimal programmatic usage:
+
+```js
+import { createDefaultScenarioRegistry, runQa } from './src/index.mjs';
+
+await runQa({
+  url: 'https://example.com',
+  profile,
+  profilePath,
+  outDir: 'reports/example',
+  timeoutMs: 120000,
+  scenarioRegistry: createDefaultScenarioRegistry([myScenarioPlugin]),
+  // Optional for custom backends:
+  // engineFactory: ({ timeoutMs, report }) => new MyBrowserEngine({ timeoutMs, report }),
+});
+```
+
+Keep the CLI stable while refactoring internals around these seams.
+
 ## Development checks
 
 Inside this monorepo:
